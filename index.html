@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pre-Test: Sistem Energi Surya </title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║          PANDUAN SETUP FIREBASE (BACA SEBELUM DIPAKAI!)             ║
+╠══════════════════════════════════════════════════════════════════════╣
+║                                                                      ║
+║  LANGKAH 1 — Buat Proyek Firebase (GRATIS)                          ║
+║  • Buka: https://console.firebase.google.com                        ║
+║  • Klik "Add project" → beri nama (mis: "pretest-energisurya")      ║
+║  • Ikuti wizard, matikan Google Analytics (opsional)                ║
+║                                                                      ║
+║  LANGKAH 2 — Aktifkan Realtime Database                             ║
+║  • Di menu kiri: Build → Realtime Database → Create database        ║
+║  • Pilih lokasi (Singapore terdekat), Start in TEST MODE (30 hari)  ║
+║  • Untuk keamanan jangka panjang, atur Rules:                       ║
+║    { "rules": { ".read": false, ".write": true } }                  ║
+║                                                                      ║
+║  LANGKAH 3 — Ambil konfigurasi                                      ║
+║  • Di Firebase Console: Project Settings (⚙) → Your apps           ║
+║  • Klik ikon </> (Web) → Register app → salin firebaseConfig        ║
+║                                                                      ║
+║  LANGKAH 4 — Tempel konfigurasi di bawah ini                        ║
+║  • Cari komentar "GANTI DENGAN CONFIG FIREBASE ANDA"                ║
+║  • Tempel nilai dari console.firebase.google.com                    ║
+║                                                                      ║
+║  LANGKAH 5 — Lihat data siswa                                       ║
+║  • Firebase Console → Realtime Database → Data                      ║
+║  • Semua hasil siswa tersimpan di: hasil_pretest/<nama>_<timestamp> ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, push, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  // ▼▼▼ GANTI DENGAN CONFIG FIREBASE ANDA (dari Project Settings) ▼▼▼
+  const firebaseConfig = {
+    apiKey: "AIzaSyCN78ftgQy3lmWzlaDgVphz3BweANsyOY8",
+  authDomain: "abccc-abaf5.firebaseapp.com",
+  databaseURL: "https://abccc-abaf5-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "abccc-abaf5",
+  storageBucket: "abccc-abaf5.firebasestorage.app",
+  messagingSenderId: "523120030175",
+  appId: "1:523120030175:web:f5b3bd058cc20c03ab146a"
+  };
+  // ▲▲▲ SAMPAI DI SINI ▲▲▲
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Expose ke global supaya bisa dipanggil dari submitTest()
+  window._firebaseDb = db;
+  window._firebaseRef = ref;
+  window._firebasePush = push;
+  window._firebaseSet = set;
+  window._firebaseReady = true;
+  console.log("✅ Firebase berhasil diinisialisasi");
+</script>
+
+<style>
+  :root {
+    --sun: #FFB800;
+    --sun-glow: #FF8C00;
+    --sky: #0a1628;
+    --sky2: #0d2347;
+    --panel-blue: #1a3a6e;
+    --accent: #00E5FF;
+    --accent2: #FFB800;
+    --correct: #00E676;
+    --wrong: #FF5252;
+    --card-bg: rgba(255,255,255,0.04);
+    --border: rgba(0,229,255,0.2);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--sky);
+    font-family: 'Exo 2', sans-serif;
+    color: #e8f4ff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.7) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 20% 90%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 15%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(2px 2px at 15% 45%, rgba(255,184,0,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 50%, rgba(255,255,255,0.4) 0%, transparent 100%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 0 20px 60px; position: relative; z-index:1; }
+
+  .header {
+    text-align: center;
+    padding: 40px 0 20px;
+    position: relative;
+  }
+
+  .sun-animation {
+    width: 100px; height: 100px;
+    margin: 0 auto 20px;
+    position: relative;
+  }
+  .sun-core {
+    width: 60px; height: 60px;
+    background: radial-gradient(circle, #fff7aa, #FFB800, #FF8C00);
+    border-radius: 50%;
+    position: absolute; top:50%; left:50%;
+    transform: translate(-50%,-50%);
+    box-shadow: 0 0 30px 10px rgba(255,184,0,0.6), 0 0 60px 20px rgba(255,140,0,0.3);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .sun-rays {
+    width: 100%; height: 100%;
+    animation: spin 12s linear infinite;
+    position: absolute;
+  }
+  .sun-rays::before, .sun-rays::after {
+    content: '';
+    position: absolute; top:0; left:50%;
+    width: 3px; height: 100%;
+    background: linear-gradient(to bottom, transparent 0%, rgba(255,184,0,0.8) 30%, rgba(255,184,0,0.8) 70%, transparent 100%);
+    transform: translateX(-50%);
+    border-radius: 3px;
+  }
+  .sun-rays::after { transform: translateX(-50%) rotate(45deg); }
+  .ray-extra { position:absolute; top:0; left:50%; width:3px; height:100%; background: linear-gradient(to bottom, transparent, rgba(255,184,0,0.6), transparent); transform: translateX(-50%) rotate(90deg); border-radius:3px; }
+  .ray-extra2 { position:absolute; top:0; left:50%; width:3px; height:100%; background: linear-gradient(to bottom, transparent, rgba(255,184,0,0.6), transparent); transform: translateX(-50%) rotate(135deg); border-radius:3px; }
+
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 30px 10px rgba(255,184,0,0.6), 0 0 60px 20px rgba(255,140,0,0.3); } 50% { box-shadow: 0 0 40px 15px rgba(255,184,0,0.9), 0 0 80px 30px rgba(255,140,0,0.5); } }
+
+  .header h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.4rem, 4vw, 2.2rem);
+    font-weight: 900;
+    background: linear-gradient(135deg, #FFB800, #fff, #00E5FF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+    letter-spacing: 2px;
+  }
+  .header .subtitle {
+    font-size: 0.95rem;
+    color: rgba(0,229,255,0.7);
+    margin-top: 8px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .progress-bar-wrap {
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px;
+    height: 10px;
+    margin: 24px 0 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #FFB800, #00E5FF);
+    border-radius: 20px;
+    transition: width 0.5s ease;
+    width: 0%;
+    box-shadow: 0 0 8px rgba(0,229,255,0.6);
+  }
+  .progress-label {
+    text-align: right;
+    font-size: 0.78rem;
+    color: rgba(0,229,255,0.6);
+    margin-top: 6px;
+    font-family: 'Orbitron', monospace;
+  }
+
+  .student-form {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin: 28px 0;
+    backdrop-filter: blur(10px);
+  }
+  .student-form h3 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  .form-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .form-group { flex: 1; min-width: 200px; }
+  .form-group label { display: block; font-size: 0.78rem; color: rgba(0,229,255,0.6); margin-bottom: 6px; letter-spacing: 1px; text-transform: uppercase; }
+  .form-group input, .form-group select {
+    width: 100%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(0,229,255,0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #e8f4ff;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-group select option { background: #0d2347; }
+
+  .simulation-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 0 0 28px;
+    text-align: center;
+  }
+  .simulation-box h3 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.78rem;
+    color: var(--accent2);
+    letter-spacing: 2px;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+  .sim-svg { width: 100%; max-width: 700px; }
+
+  .question-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin: 0 0 20px;
+    backdrop-filter: blur(6px);
+    transition: border-color 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .question-card::before {
+    content: '';
+    position: absolute; top:0; left:0;
+    width: 4px; height: 100%;
+    background: linear-gradient(to bottom, var(--accent2), var(--accent));
+    border-radius: 4px 0 0 4px;
+  }
+  .question-card.answered { border-color: rgba(0,229,255,0.4); }
+  .q-number {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    color: var(--accent2);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+  }
+  .q-text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e8f4ff;
+    line-height: 1.6;
+    margin-bottom: 18px;
+  }
+  .q-image {
+    margin: 0 0 18px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(0,229,255,0.15);
+  }
+  .q-image svg { width:100%; display:block; }
+
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .option-btn {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 0.92rem;
+    color: #cde4ff;
+    width: 100%;
+  }
+  .option-btn:hover:not(:disabled) {
+    background: rgba(0,229,255,0.07);
+    border-color: rgba(0,229,255,0.35);
+    transform: translateX(4px);
+  }
+  .option-btn:disabled { cursor: default; }
+  .option-btn.correct { background: rgba(0,230,118,0.12); border-color: var(--correct); color: #b9ffd8; }
+  .option-btn.wrong   { background: rgba(255,82,82,0.1);  border-color: var(--wrong); color: #ffd0d0; }
+  .option-key {
+    width: 28px; height: 28px; flex-shrink: 0;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    display: flex; align-items:center; justify-content:center;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.72rem; font-weight: 700;
+  }
+  .option-btn.correct .option-key { background: var(--correct); color: #003d1a; border-color: var(--correct); }
+  .option-btn.wrong   .option-key { background: var(--wrong); color: #fff; border-color: var(--wrong); }
+
+  .feedback {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .feedback.correct { background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: var(--correct); }
+  .feedback.wrong   { background: rgba(255,82,82,0.08); border: 1px solid rgba(255,82,82,0.3); color: var(--wrong); }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+
+  .submit-wrap { text-align:center; margin: 30px 0; }
+  .submit-btn {
+    background: linear-gradient(135deg, #FFB800, #FF8C00);
+    color: #1a0a00;
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+    padding: 16px 48px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 20px rgba(255,184,0,0.35);
+  }
+  .submit-btn:hover { transform: scale(1.05); box-shadow: 0 6px 30px rgba(255,184,0,0.55); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  #result-section { display:none; }
+  .result-card {
+    background: linear-gradient(135deg, rgba(10,22,40,0.95), rgba(13,35,71,0.95));
+    border: 1px solid rgba(255,184,0,0.4);
+    border-radius: 20px;
+    padding: 36px 32px;
+    margin: 20px 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .result-card::before {
+    content: '';
+    position: absolute; top:-40%; left:-40%;
+    width: 180%; height: 180%;
+    background: radial-gradient(ellipse at center, rgba(255,184,0,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .score-circle {
+    width: 130px; height: 130px;
+    border-radius: 50%;
+    border: 4px solid;
+    display: flex; flex-direction:column; align-items:center; justify-content:center;
+    margin: 0 auto 20px;
+    position: relative;
+  }
+  .score-num {
+    font-family: 'Orbitron', monospace;
+    font-size: 2.4rem;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .score-label { font-size: 0.72rem; letter-spacing: 2px; opacity: 0.7; margin-top: 2px; }
+  .result-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.3rem;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+  .result-sub { font-size: 0.88rem; color: rgba(200,220,255,0.6); margin-bottom: 24px; }
+
+  .rekap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin: 20px 0;
+    text-align: left;
+  }
+  .rekap-table th {
+    background: rgba(0,229,255,0.08);
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1.5px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(0,229,255,0.2);
+  }
+  .rekap-table td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .rekap-table tr:last-child td { border-bottom: none; }
+  .rekap-table .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .badge-correct { background: rgba(0,230,118,0.15); color: var(--correct); border: 1px solid rgba(0,230,118,0.3); }
+  .badge-wrong   { background: rgba(255,82,82,0.12); color: var(--wrong);   border: 1px solid rgba(255,82,82,0.3); }
+
+  .student-info-display {
+    display: flex; gap: 16px; flex-wrap:wrap; justify-content:center;
+    margin-bottom: 22px;
+  }
+  .info-chip {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    padding: 6px 16px;
+    font-size: 0.82rem;
+  }
+  .info-chip span { color: var(--accent2); font-weight: 700; }
+
+  .action-btns { display:flex; gap: 14px; justify-content:center; flex-wrap:wrap; margin-top:24px; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 1.5px;
+    padding: 12px 28px;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-outline:hover { background: rgba(0,229,255,0.1); }
+  .btn-print {
+    background: linear-gradient(135deg, #0a4a6e, #0d2d5a);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 1.5px;
+    padding: 12px 28px;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-print:hover { background: rgba(0,229,255,0.15); }
+
+  .dots-wrap { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; margin: 10px 0 24px; }
+  .q-dot {
+    width:14px; height:14px; border-radius:50%;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    transition: all 0.3s;
+    cursor: pointer;
+    font-size: 0;
+  }
+  .q-dot.done { background: var(--accent2); border-color: var(--accent2); box-shadow: 0 0 6px rgba(255,184,0,0.5); }
+
+  /* ── STATUS FIREBASE ── */
+  .firebase-status {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    z-index: 999;
+    transition: all 0.4s ease;
+    display: none;
+  }
+  .firebase-status.saving {
+    display: block;
+    background: rgba(255,184,0,0.15);
+    border: 1px solid rgba(255,184,0,0.4);
+    color: #FFB800;
+  }
+  .firebase-status.success {
+    display: block;
+    background: rgba(0,230,118,0.12);
+    border: 1px solid rgba(0,230,118,0.4);
+    color: #00E676;
+  }
+  .firebase-status.error {
+    display: block;
+    background: rgba(255,82,82,0.12);
+    border: 1px solid rgba(255,82,82,0.4);
+    color: #FF5252;
+  }
+
+  @media print {
+    body { background: white !important; color: black !important; }
+    body::before { display:none; }
+    .no-print { display:none !important; }
+    .result-card { border-color: #ccc !important; background: white !important; color:black !important; }
+    .rekap-table th { background: #eee !important; color: #333 !important; }
+    .rekap-table td { color: #333 !important; }
+    .badge-correct { color: green !important; }
+    .badge-wrong { color: red !important; }
+    #test-section { display:none !important; }
+    .firebase-status { display:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- STATUS FIREBASE (pojok kanan bawah) -->
+<div class="firebase-status no-print" id="fb-status"></div>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header no-print">
+    <div class="sun-animation">
+      <div class="sun-rays"><div class="ray-extra"></div><div class="ray-extra2"></div></div>
+      <div class="sun-core"></div>
+    </div>
+    <h1>PRE-TEST<br>SISTEM ENERGI SURYA</h1>
+    <p class="subtitle">Good Luck · 10 Soal</p>
+  </div>
+
+  <!-- STUDENT INFO -->
+  <div class="student-form no-print" id="student-form">
+    <h3>▸ DATA SISWA</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nama Lengkap</label>
+        <input type="text" id="s-name" placeholder="Masukkan nama lengkap...">
+      </div>
+      
+      <div class="form-group">
+        <label>Kelas</label>
+        <input type="text" id="s-class" placeholder="Contoh: XI IPA 1">
+      </div>
+      <div class="form-group">
+        <label>Tanggal</label>
+        <input type="date" id="s-date">
+      </div>
+    </div>
+  </div>
+
+  <!-- TEST SECTION -->
+  <div id="test-section">
+    <div class="no-print">
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <div class="progress-label" id="progress-label">0 / 10 Terjawab</div>
+    </div>
+
+    <div class="dots-wrap no-print" id="dots-wrap"></div>
+
+    <!-- SIMULATION -->
+    <div class="simulation-box no-print">
+      <h3>⚡ Simulasi Aliran Energi Panel Surya</h3>
+      <svg class="sim-svg" viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="sg" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#fff7aa"/>
+            <stop offset="40%" stop-color="#FFB800"/>
+            <stop offset="100%" stop-color="#FF6600"/>
+          </radialGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <polygon points="0 0, 7 3.5, 0 7" fill="#00E5FF"/>
+          </marker>
+          <marker id="arrow-y" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+            <polygon points="0 0, 7 3.5, 0 7" fill="#FFB800"/>
+          </marker>
+        </defs>
+        <circle cx="50" cy="100" r="32" fill="url(#sg)" filter="url(#glow)"/>
+        <g opacity="0.7">
+          <line x1="50" y1="58" x2="50" y2="50" stroke="#FFB800" stroke-width="2" stroke-linecap="round"/>
+          <line x1="50" y1="142" x2="50" y2="150" stroke="#FFB800" stroke-width="2" stroke-linecap="round"/>
+          <line x1="8" y1="100" x2="0" y2="100" stroke="#FFB800" stroke-width="2" stroke-linecap="round"/>
+          <line x1="76" y1="76" x2="82" y2="70" stroke="#FFB800" stroke-width="2" stroke-linecap="round"/>
+          <line x1="24" y1="76" x2="18" y2="70" stroke="#FFB800" stroke-width="2" stroke-linecap="round"/>
+          <line x1="76" y1="124" x2="82" y2="130" stroke="#FFB800" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <text x="50" y="175" text-anchor="middle" fill="#FFB800" font-size="9" font-family="Orbitron,monospace">MATAHARI</text>
+        <line x1="82" y1="90" x2="148" y2="90" stroke="#FFB800" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-y)">
+          <animate attributeName="stroke-dashoffset" from="0" to="-14" dur="0.8s" repeatCount="indefinite"/>
+        </line>
+        <line x1="82" y1="110" x2="148" y2="110" stroke="#FFB800" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow-y)">
+          <animate attributeName="stroke-dashoffset" from="0" to="-14" dur="0.8s" repeatCount="indefinite"/>
+        </line>
+        <rect x="150" y="65" width="80" height="70" rx="4" fill="#1a3a6e" stroke="#00E5FF" stroke-width="1.5"/>
+        <rect x="152" y="67" width="35" height="30" rx="2" fill="#0d2a5e" stroke="#00bcd4" stroke-width="0.5"/>
+        <rect x="193" y="67" width="35" height="30" rx="2" fill="#0d2a5e" stroke="#00bcd4" stroke-width="0.5"/>
+        <rect x="152" y="103" width="35" height="30" rx="2" fill="#0d2a5e" stroke="#00bcd4" stroke-width="0.5"/>
+        <rect x="193" y="103" width="35" height="30" rx="2" fill="#0d2a5e" stroke="#00bcd4" stroke-width="0.5"/>
+        <text x="190" y="150" text-anchor="middle" fill="#00E5FF" font-size="8" font-family="Orbitron,monospace">PANEL SURYA</text>
+        <line x1="232" y1="100" x2="278" y2="100" stroke="#00E5FF" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="0" to="-16" dur="0.7s" repeatCount="indefinite"/>
+        </line>
+        <text x="255" y="94" text-anchor="middle" fill="rgba(0,229,255,0.5)" font-size="7">DC</text>
+        <rect x="280" y="75" width="70" height="50" rx="6" fill="#0d2347" stroke="#FFB800" stroke-width="1.5"/>
+        <text x="315" y="97" text-anchor="middle" fill="#FFB800" font-size="7.5" font-family="Orbitron,monospace">SOLAR</text>
+        <text x="315" y="110" text-anchor="middle" fill="#FFB800" font-size="7.5" font-family="Orbitron,monospace">CONTROLLER</text>
+        <text x="315" y="150" text-anchor="middle" fill="#FFB800" font-size="8" font-family="Orbitron,monospace">KONTROLER</text>
+        <line x1="350" y1="115" x2="390" y2="148" stroke="#00E5FF" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="0" to="-16" dur="0.7s" repeatCount="indefinite"/>
+        </line>
+        <rect x="392" y="148" width="60" height="38" rx="5" fill="#0d2347" stroke="#aaa" stroke-width="1.5"/>
+        <rect x="415" y="143" width="14" height="7" rx="2" fill="#888"/>
+        <text x="422" y="169" text-anchor="middle" fill="#ccc" font-size="7.5" font-family="Orbitron,monospace">AKI/BATERAI</text>
+        <line x1="352" y1="100" x2="408" y2="100" stroke="#00E5FF" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="0" to="-16" dur="0.7s" repeatCount="indefinite"/>
+        </line>
+        <rect x="410" y="75" width="70" height="50" rx="6" fill="#0d2347" stroke="#00E676" stroke-width="1.5"/>
+        <text x="445" y="99" text-anchor="middle" fill="#00E676" font-size="8" font-family="Orbitron,monospace">INVERTER</text>
+        <text x="445" y="112" text-anchor="middle" fill="rgba(0,230,118,0.6)" font-size="7">DC → AC</text>
+        <text x="445" y="150" text-anchor="middle" fill="#00E676" font-size="8" font-family="Orbitron,monospace">INVERTER</text>
+        <line x1="482" y1="100" x2="530" y2="100" stroke="#00E676" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)">
+          <animate attributeName="stroke-dashoffset" from="0" to="-16" dur="0.7s" repeatCount="indefinite"/>
+        </line>
+        <text x="507" y="94" text-anchor="middle" fill="rgba(0,230,118,0.5)" font-size="7">AC</text>
+        <g transform="translate(532,70)">
+          <polygon points="35,0 70,30 0,30" fill="#1a3a6e" stroke="#00E676" stroke-width="1.5"/>
+          <rect x="10" y="30" width="50" height="40" fill="#1a3a6e" stroke="#00E676" stroke-width="1.5"/>
+          <rect x="27" y="42" width="16" height="28" fill="#0a1628" stroke="#00E676" stroke-width="0.8"/>
+          <circle cx="55" cy="85" r="3" fill="#FFB800">
+            <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+          </circle>
+        </g>
+        <text x="567" y="175" text-anchor="middle" fill="#cde4ff" font-size="8" font-family="Orbitron,monospace">BEBAN</text>
+      </svg>
+      <p style="font-size:0.75rem;color:rgba(200,220,255,0.4);margin-top:8px">Animasi menunjukkan aliran energi dari matahari → panel surya → kontroler → inverter → beban listrik</p>
+    </div>
+
+    <!-- QUESTIONS -->
+    <div id="questions-container"></div>
+
+    <div class="submit-wrap no-print">
+      <button class="submit-btn" id="submit-btn" onclick="submitTest()">⚡ LIHAT HASIL & REKAP NILAI</button>
+    </div>
+  </div>
+
+  <!-- RESULT SECTION -->
+  <div id="result-section">
+    <div class="result-card">
+      <div class="student-info-display" id="result-student-info"></div>
+      <div class="score-circle" id="score-circle">
+        <div class="score-num" id="score-num">0</div>
+        <div class="score-label">NILAI</div>
+      </div>
+      <div class="result-title" id="result-title">—</div>
+      <div class="result-sub" id="result-sub">—</div>
+
+      <table class="rekap-table" id="rekap-table">
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th>Soal</th>
+            <th>Jawaban Siswa</th>
+           
+            <th>Status</th>
+            <th>Skor</th>
+          </tr>
+        </thead>
+        <tbody id="rekap-body"></tbody>
+        <tfoot>
+          <tr style="font-weight:700">
+            <td colspan="5" style="text-align:right;padding:12px 14px;color:rgba(0,229,255,0.8);">TOTAL NILAI</td>
+            <td style="padding:12px 14px;font-family:Orbitron,monospace;font-size:1.1rem;" id="total-score-cell">—</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="action-btns">
+        <button class="btn-print" onclick="window.print()">🖨 Cetak Laporan</button>
+       
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const questions = [
+  {
+    num: 1,
+    text: "Sumber energi utama yang digunakan oleh panel surya untuk menghasilkan listrik adalah...",
+    options: ["Angin","Panas bumi","Matahari","Nuklir","Pasang surut air laut"],
+    answer: "C",
+    feedback_correct: "Tepat! Panel surya (sel fotovoltaik) mengubah energi cahaya matahari menjadi energi listrik.",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 2,
+    text: "Berdasarkan diagram aliran energi matahari ke bumi, berapakah persentase energi yang diserap langsung oleh daratan dan lautan?",
+    options: ["6%","16%","20%","51%","64%"],
+    answer: "D",
+    img: "energy_flow",
+    feedback_correct: "Benar! 51% energi matahari diserap langsung oleh permukaan bumi (daratan & lautan).",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 3,
+    text: "Selain sebagai pembangkit listrik, radiasi matahari bermanfaat bagi manusia untuk membantu pembentukan...",
+    options: ["Vitamin A","Vitamin C","Vitamin D","Karbohidrat","Oksigen"],
+    answer: "C",
+    feedback_correct: "Benar! Sinar UVB dari matahari membantu kulit memproduksi Vitamin D yang penting untuk kesehatan tulang.",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 4,
+    text: "Panel surya bekerja dengan cara menangkap partikel cahaya yang menabrak lapisan semikonduktor hingga menghasilkan aliran elektron. Partikel cahaya tersebut dikenal dengan istilah...",
+    options: ["Proton","Neutron","Positron","Foton","Ion"],
+    answer: "D",
+    img: "photon",
+    feedback_correct: "Tepat! Foton adalah partikel cahaya. Ketika foton menabrak sel surya, elektron terlepas dan mengalir membentuk arus listrik (efek fotovoltaik).",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 5,
+    text: "Bahan utama yang sering digunakan dalam pembuatan sel surya, baik tipe Monocrystalline maupun Polycrystalline, adalah...",
+    options: ["Tembaga","Silikon","Karbon","Aluminium","Timbal"],
+    answer: "B",
+    feedback_correct: "Benar! Silikon (Si) adalah bahan semikonduktor utama untuk sel surya, baik tipe mono maupun policrystalline.",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 6,
+    text: "Komponen yang berfungsi untuk mengubah arus searah (DC) dari panel surya menjadi arus bolak-balik (AC) untuk peralatan rumah tangga adalah...",
+    options: ["Kontroler","Baterai/Aki","Inverter","Transformator","Generator"],
+    answer: "C",
+    img: "inverter",
+    feedback_correct: "Tepat! Inverter bertugas mengonversi arus DC dari panel surya/baterai menjadi AC yang dibutuhkan peralatan rumah tangga.",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 7,
+    text: "Apa fungsi utama dari Solar Charge Controller dalam sistem instalasi panel surya?",
+    options: [
+      "Mengubah energi kimia menjadi listrik",
+      "Mengatur pengisian daya ke baterai dan penggunaan daya dari baterai",
+      "Menangkap sinar matahari secara maksimal",
+      "Menurunkan tegangan arus AC",
+      "Menyimpan cadangan listrik untuk malam hari"
+    ],
+    answer: "B",
+    feedback_correct: "Benar! Solar Charge Controller mengatur arus pengisian agar baterai tidak overcharge dan mengontrol pengambilan daya dari baterai.",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 8,
+    text: "Aki (Accu) atau baterai merupakan elemen sekunder dalam sistem ini yang berfungsi mengubah...",
+    options: [
+      "Energi panas menjadi energi listrik",
+      "Energi mekanik menjadi energi listrik",
+      "Energi kimia menjadi energi listrik",
+      "Arus AC menjadi arus DC",
+      "Energi cahaya menjadi energi kinetik"
+    ],
+    answer: "C",
+    feedback_correct: "Tepat! Aki/baterai menyimpan energi dalam bentuk kimia dan melepaskannya kembali sebagai energi listrik saat dibutuhkan.",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 9,
+    text: "Dalam proses instalasi, urutan penyambungan kabel ke kontroler yang paling benar dan aman untuk menghindari kerusakan alat adalah...",
+    options: [
+      "Panel surya dihubungkan terlebih dahulu, baru kemudian baterai",
+      "Baterai dihubungkan terlebih dahulu, baru kemudian panel surya",
+      "Lampu DC dihubungkan terlebih dahulu, baru kemudian panel surya",
+      "Inverter dihubungkan terlebih dahulu ke panel surya",
+      "Semua komponen dihubungkan secara bersamaan"
+    ],
+    answer: "B",
+    img: "wiring",
+    feedback_correct: "Benar! SOP instalasi: BATERAI dahulu ke kontroler, kemudian panel surya. Ini melindungi kontroler dari lonjakan tegangan.",
+    feedback_wrong: "Jawaban tidak tepat"
+  },
+  {
+    num: 10,
+    text: "Apa risiko yang terjadi jika kutub positif dan negatif (anoda-katoda) pada sistem DC terhubung secara terbalik atau bertemu langsung?",
+    options: [
+      "Tegangan listrik akan meningkat dua kali lipat",
+      "Panel surya akan menghasilkan lebih banyak energi",
+      "Terjadi arus pendek (korsleting)",
+      "Arus DC secara otomatis berubah menjadi AC",
+      "Baterai akan terisi lebih cepat"
+    ],
+    answer: "C",
+    feedback_correct: "Benar! Polaritas terbalik atau hubung singkat pada sistem DC menyebabkan korsleting (short circuit) yang sangat berbahaya—bisa merusak alat bahkan kebakaran.",
+    feedback_wrong: "Jawaban tidak tepat"
+  }
+];
+
+const keys = ["A","B","C","D","E"];
+let userAnswers = {};
+
+// Build dots
+const dotsWrap = document.getElementById('dots-wrap');
+questions.forEach((q,i) => {
+  const d = document.createElement('div');
+  d.className = 'q-dot';
+  d.title = `Soal ${i+1}`;
+  d.onclick = () => document.getElementById(`q-${i+1}`).scrollIntoView({behavior:'smooth',block:'center'});
+  d.id = `dot-${i+1}`;
+  dotsWrap.appendChild(d);
+});
+
+document.getElementById('s-date').value = new Date().toISOString().split('T')[0];
+
+function getImageSVG(type) {
+  if (type === 'energy_flow') return `
+    <svg viewBox="0 0 600 140" xmlns="http://www.w3.org/2000/svg">
+      <rect width="600" height="140" fill="#0a1628" rx="8"/>
+      <circle cx="50" cy="70" r="28" fill="url(#sg2)"/>
+      <defs><radialGradient id="sg2" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#fff7aa"/><stop offset="100%" stop-color="#FF8C00"/></radialGradient></defs>
+      <text x="50" y="115" text-anchor="middle" fill="#FFB800" font-size="8" font-family="Exo 2,sans-serif">Matahari</text>
+      <line x1="80" y1="60" x2="140" y2="40" stroke="#FFB800" stroke-width="1.5" marker-end="url(#ay)"/>
+      <line x1="80" y1="70" x2="140" y2="70" stroke="#FFB800" stroke-width="1.5" marker-end="url(#ay)"/>
+      <line x1="80" y1="80" x2="140" y2="100" stroke="#FFB800" stroke-width="1.5" marker-end="url(#ay)"/>
+      <defs>
+        <marker id="ay" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#FFB800"/></marker>
+        <marker id="ac" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#00E676"/></marker>
+      </defs>
+      <rect x="140" y="25" width="100" height="25" rx="4" fill="rgba(255,82,82,0.1)" stroke="#FF5252" stroke-width="1"/>
+      <text x="190" y="37" text-anchor="middle" fill="#FF8888" font-size="8" font-family="Exo 2,sans-serif">Atmosfer atas: 30%</text>
+      <text x="190" y="48" text-anchor="middle" fill="#FF8888" font-size="7.5">dipantulkan balik</text>
+      <rect x="140" y="58" width="80" height="25" rx="4" fill="rgba(255,184,0,0.1)" stroke="#FFB800" stroke-width="1"/>
+      <text x="180" y="70" text-anchor="middle" fill="#FFB800" font-size="8" font-family="Exo 2,sans-serif">Diserap atmosfer</text>
+      <text x="180" y="81" text-anchor="middle" fill="rgba(255,184,0,0.7)" font-size="7.5">19%</text>
+      <rect x="140" y="91" width="80" height="25" rx="4" fill="rgba(0,230,118,0.08)" stroke="#00E676" stroke-width="1"/>
+      <text x="180" y="103" text-anchor="middle" fill="#00E676" font-size="8" font-family="Exo 2,sans-serif">Diserap bumi</text>
+      <text x="180" y="114" text-anchor="middle" fill="rgba(0,230,118,0.7)" font-size="7.5">51%</text>
+      <rect x="250" y="91" width="60" height="25" rx="4" fill="rgba(0,229,255,0.08)" stroke="#00E5FF" stroke-width="1"/>
+      <text x="280" y="103" text-anchor="middle" fill="#00E5FF" font-size="7.5" font-family="Exo 2,sans-serif">Panel Surya</text>
+      <text x="280" y="114" text-anchor="middle" fill="rgba(0,229,255,0.6)" font-size="7">memanfaatkan</text>
+      <line x1="224" y1="100" x2="278" y2="100" stroke="#00E676" stroke-width="1.5" marker-end="url(#ac)"/>
+      <rect x="320" y="85" width="80" height="35" rx="4" fill="rgba(0,229,255,0.08)" stroke="#00E5FF" stroke-width="1.5"/>
+      <text x="360" y="100" text-anchor="middle" fill="#00E5FF" font-size="8" font-family="Orbitron,monospace">⚡ LISTRIK</text>
+      <text x="360" y="113" text-anchor="middle" fill="rgba(0,229,255,0.6)" font-size="7.5">energi surya ⚡</text>
+    </svg>`;
+  if (type === 'photon') return `
+    <svg viewBox="0 0 600 130" xmlns="http://www.w3.org/2000/svg">
+      <rect width="600" height="130" fill="#0a1628" rx="8"/>
+      <defs><marker id="af" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#FFB800"/></marker></defs>
+      <path d="M30,65 Q45,45 60,65 Q75,85 90,65 Q105,45 120,65" stroke="#FFB800" stroke-width="2" fill="none"/>
+      <circle cx="120" cy="65" r="5" fill="#FFB800"/>
+      <text x="75" y="25" text-anchor="middle" fill="#FFB800" font-size="9" font-family="Exo 2,sans-serif">FOTON (partikel cahaya)</text>
+      <line x1="130" y1="65" x2="175" y2="65" stroke="#FFB800" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#af)"/>
+      <rect x="180" y="40" width="120" height="50" rx="4" fill="#1a3a6e" stroke="#00E5FF" stroke-width="1.5"/>
+      <text x="240" y="62" text-anchor="middle" fill="#00E5FF" font-size="8" font-family="Exo 2,sans-serif">Lapisan</text>
+      <text x="240" y="75" text-anchor="middle" fill="#00E5FF" font-size="8" font-family="Exo 2,sans-serif">Semikonduktor Si</text>
+      <circle cx="310" cy="60" r="5" fill="#00E676">
+        <animate attributeName="cx" values="310;380" dur="1.2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0.2;1" dur="1.2s" repeatCount="indefinite"/>
+      </circle>
+      <defs><marker id="ae" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#00E676"/></marker></defs>
+      <line x1="310" y1="65" x2="370" y2="65" stroke="#00E676" stroke-width="1.5" stroke-dasharray="3,2" marker-end="url(#ae)"/>
+      <text x="340" y="58" text-anchor="middle" fill="#00E676" font-size="8" font-family="Exo 2,sans-serif">Elektron bebas</text>
+      <rect x="375" y="48" width="80" height="34" rx="4" fill="rgba(0,230,118,0.1)" stroke="#00E676" stroke-width="1.5"/>
+      <text x="415" y="63" text-anchor="middle" fill="#00E676" font-size="8" font-family="Exo 2,sans-serif">Arus Listrik DC</text>
+      <text x="415" y="75" text-anchor="middle" fill="#00E676" font-size="7.5" font-family="Exo 2,sans-serif">⚡ Efek Fotovoltaik</text>
+      <text x="300" y="115" text-anchor="middle" fill="rgba(200,220,255,0.4)" font-size="7.5" font-family="Exo 2,sans-serif">Foton → menabrak Si → elektron terlepas → aliran arus listrik DC</text>
+    </svg>`;
+  if (type === 'inverter') return `
+    <svg viewBox="0 0 600 130" xmlns="http://www.w3.org/2000/svg">
+      <rect width="600" height="130" fill="#0a1628" rx="8"/>
+      <defs>
+        <marker id="adc" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#FFB800"/></marker>
+        <marker id="aac" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#00E676"/></marker>
+      </defs>
+      <rect x="20" y="45" width="100" height="40" rx="6" fill="#1a3a6e" stroke="#FFB800" stroke-width="1.5"/>
+      <text x="70" y="63" text-anchor="middle" fill="#FFB800" font-size="9" font-family="Orbitron,monospace">DC</text>
+      <text x="70" y="78" text-anchor="middle" fill="#FFB800" font-size="7.5">Panel/Baterai</text>
+      <line x1="30" y1="100" x2="100" y2="100" stroke="#FFB800" stroke-width="2"/>
+      <text x="65" y="115" text-anchor="middle" fill="#FFB800" font-size="7">Arus Searah</text>
+      <line x1="122" y1="65" x2="192" y2="65" stroke="#00E5FF" stroke-width="2" marker-end="url(#adc)"/>
+      <rect x="195" y="35" width="120" height="60" rx="8" fill="#0d2347" stroke="#00E5FF" stroke-width="2"/>
+      <text x="255" y="60" text-anchor="middle" fill="#00E5FF" font-size="10" font-family="Orbitron,monospace">INVERTER</text>
+      <text x="255" y="78" text-anchor="middle" fill="rgba(0,229,255,0.6)" font-size="8">DC → AC</text>
+      <line x1="317" y1="65" x2="387" y2="65" stroke="#00E676" stroke-width="2" marker-end="url(#aac)"/>
+      <rect x="390" y="45" width="100" height="40" rx="6" fill="rgba(0,230,118,0.08)" stroke="#00E676" stroke-width="1.5"/>
+      <text x="440" y="63" text-anchor="middle" fill="#00E676" font-size="9" font-family="Orbitron,monospace">AC</text>
+      <text x="440" y="78" text-anchor="middle" fill="#00E676" font-size="7.5">220V Rumah</text>
+      <path d="M400,110 Q410,95 420,110 Q430,125 440,110 Q450,95 460,110 Q470,125 480,110" stroke="#00E676" stroke-width="2" fill="none"/>
+      <text x="440" y="130" text-anchor="middle" fill="#00E676" font-size="7">Arus Bolak-Balik</text>
+    </svg>`;
+  if (type === 'wiring') return `
+    <svg viewBox="0 0 600 140" xmlns="http://www.w3.org/2000/svg">
+      <rect width="600" height="140" fill="#0a1628" rx="8"/>
+      <defs>
+        <marker id="aw1" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#00E676"/></marker>
+        <marker id="aw2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0,6 3,0 6" fill="#FFB800"/></marker>
+      </defs>
+      <rect x="20" y="30" width="120" height="50" rx="6" fill="rgba(0,230,118,0.08)" stroke="#00E676" stroke-width="2"/>
+      <text x="80" y="52" text-anchor="middle" fill="#00E676" font-size="8" font-family="Orbitron,monospace">LANGKAH 1</text>
+      <text x="80" y="66" text-anchor="middle" fill="#00E676" font-size="8.5">AKI/BATERAI</text>
+      <text x="80" y="78" text-anchor="middle" fill="rgba(0,230,118,0.6)" font-size="7.5">Hubungkan dahulu</text>
+      <text x="80" y="115" text-anchor="middle" fill="#00E676" font-size="7">① Pertama</text>
+      <line x1="142" y1="55" x2="192" y2="55" stroke="#00E676" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#aw1)"/>
+      <rect x="195" y="30" width="120" height="50" rx="6" fill="#1a3a6e" stroke="#00E5FF" stroke-width="1.5"/>
+      <text x="255" y="52" text-anchor="middle" fill="#00E5FF" font-size="8" font-family="Orbitron,monospace">KONTROLER</text>
+      <text x="255" y="66" text-anchor="middle" fill="#aaccff" font-size="7.5">Solar Charge</text>
+      <text x="255" y="78" text-anchor="middle" fill="#aaccff" font-size="7.5">Controller</text>
+      <text x="255" y="115" text-anchor="middle" fill="#00E5FF" font-size="7">Hub. ke Baterai dulu</text>
+      <line x1="318" y1="55" x2="368" y2="55" stroke="#FFB800" stroke-width="2" stroke-dasharray="4,2" marker-end="url(#aw2)"/>
+      <rect x="370" y="30" width="120" height="50" rx="6" fill="rgba(255,184,0,0.08)" stroke="#FFB800" stroke-width="2"/>
+      <text x="430" y="52" text-anchor="middle" fill="#FFB800" font-size="8" font-family="Orbitron,monospace">LANGKAH 2</text>
+      <text x="430" y="66" text-anchor="middle" fill="#FFB800" font-size="8.5">PANEL SURYA</text>
+      <text x="430" y="78" text-anchor="middle" fill="rgba(255,184,0,0.6)" font-size="7.5">Hubungkan berikutnya</text>
+      <text x="430" y="115" text-anchor="middle" fill="#FFB800" font-size="7">② Kedua</text>
+      <rect x="20" y="122" width="470" height="14" rx="4" fill="rgba(255,82,82,0.1)" stroke="rgba(255,82,82,0.3)" stroke-width="1"/>
+      <text x="255" y="132" text-anchor="middle" fill="#FF8888" font-size="7.5">⚠ Jika dibalik: kontroler bisa rusak akibat lonjakan tegangan dari panel surya</text>
+    </svg>`;
+  return '';
+}
+
+// Render questions
+const container = document.getElementById('questions-container');
+questions.forEach((q, i) => {
+  const div = document.createElement('div');
+  div.className = 'question-card';
+  div.id = `q-${q.num}`;
+  let imgHTML = '';
+  if (q.img) {
+    imgHTML = `<div class="q-image">${getImageSVG(q.img)}</div>`;
+  }
+  const opts = q.options.map((o, j) => `
+    <button class="option-btn" id="opt-${q.num}-${j}" onclick="selectAnswer(${q.num}, '${keys[j]}', ${i})">
+      <span class="option-key">${keys[j]}</span>
+      <span>${o}</span>
+    </button>`).join('');
+  div.innerHTML = `
+    <div class="q-number">SOAL ${q.num} / 10</div>
+    <div class="q-text">${q.text}</div>
+    ${imgHTML}
+    <div class="options">${opts}</div>
+    <div class="feedback" id="fb-${q.num}"></div>`;
+  container.appendChild(div);
+});
+
+function selectAnswer(qNum, choice, idx) {
+  if (userAnswers[qNum] !== undefined) return;
+  userAnswers[qNum] = choice;
+  const q = questions[idx];
+  const isCorrect = choice === q.answer;
+  const correctIdx = keys.indexOf(q.answer);
+  q.options.forEach((_, j) => {
+    const btn = document.getElementById(`opt-${qNum}-${j}`);
+    btn.disabled = true;
+    if (j === correctIdx && isCorrect) btn.classList.add('correct');
+    else if (keys[j] === choice && !isCorrect) btn.classList.add('wrong');
+  });
+  const fb = document.getElementById(`fb-${qNum}`);
+  fb.style.display = 'block';
+  fb.className = `feedback ${isCorrect ? 'correct' : 'wrong'}`;
+  fb.textContent = isCorrect ? `✓ ${q.feedback_correct}` : `✗ ${q.feedback_wrong}`;
+  document.getElementById(`q-${qNum}`).classList.add('answered');
+  document.getElementById(`dot-${qNum}`).classList.add('done');
+  const answered = Object.keys(userAnswers).length;
+  document.getElementById('progress-fill').style.width = (answered / 10 * 100) + '%';
+  document.getElementById('progress-label').textContent = `${answered} / 10 Terjawab`;
+}
+
+// ─── FUNGSI SIMPAN KE FIREBASE ─────────────────────────────────────────────
+function showFbStatus(type, msg) {
+  const el = document.getElementById('fb-status');
+  el.className = `firebase-status ${type}`;
+  el.textContent = msg;
+  if (type === 'success') {
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+  }
+}
+
+async function saveToFirebase(data) {
+  // Tunggu Firebase siap (maks 5 detik)
+  let waited = 0;
+  while (!window._firebaseReady && waited < 50) {
+    await new Promise(r => setTimeout(r, 100));
+    waited++;
+  }
+
+  if (!window._firebaseReady || !window._firebaseDb) {
+    showFbStatus('error', '⚠ Firebase belum dikonfigurasi. Lihat panduan setup di komentar HTML.');
+    console.warn('Firebase tidak siap. Pastikan firebaseConfig sudah diisi dengan benar.');
+    return false;
+  }
+
+  try {
+    showFbStatus('saving', '💾 Menyimpan ke database...');
+    const db = window._firebaseDb;
+    const refFn = window._firebaseRef;
+    const pushFn = window._firebasePush;
+
+    // Simpan ke path: hasil_pretest/<nama>_<timestamp>
+    const sanitizedName = data.nama.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
+    const timestamp = Date.now();
+    const key = `${sanitizedName}_${timestamp}`;
+    const dbRef = refFn(db, `hasil_pretest/${key}`);
+
+    await window._firebaseSet(dbRef, data);
+    showFbStatus('success', `✅ Tersimpan! Nilai ${data.nilai} untuk ${data.nama}`);
+    console.log('✅ Data berhasil disimpan ke Firebase:', key);
+    return true;
+  } catch (err) {
+    showFbStatus('error', `❌ Gagal menyimpan: ${err.message}`);
+    console.error('Firebase error:', err);
+    return false;
+  }
+}
+// ─── AKHIR FUNGSI FIREBASE ─────────────────────────────────────────────────
+
+function submitTest() {
+  const answered = Object.keys(userAnswers).length;
+  if (answered < 10) {
+    if (!confirm(`Baru ${answered} dari 10 soal terjawab. Lanjutkan dan lihat hasil?`)) return;
+  }
+
+  const name = document.getElementById('s-name').value || '—';
+
+  const cls  = document.getElementById('s-class').value || '—';
+  const date = document.getElementById('s-date').value  || '—';
+
+  let correct = 0;
+  const detailJawaban = {};
+  questions.forEach(q => {
+    const jawaban = userAnswers[q.num] || '—';
+    const benar = jawaban === q.answer;
+    if (benar) correct++;
+    detailJawaban[`soal_${q.num}`] = {
+      jawaban_siswa: jawaban,
+      
+      status: benar ? 'benar' : 'salah',
+      skor: benar ? 10 : 0
+    };
+  });
+  const score = correct * 10;
+
+  let predikat;
+  if (score >= 90) predikat = 'SANGAT BAIK';
+  else if (score >= 80) predikat = 'BAIK';
+  else if (score >= 70) predikat = 'CUKUP';
+  else if (score >= 60) predikat = 'KURANG';
+  else predikat = 'PERLU BIMBINGAN';
+
+  // ─── DATA YANG DIKIRIM KE FIREBASE ───────────────────────────────
+  const dataFirebase = {
+    nama: name,
+
+    kelas: cls,
+    tanggal: date,
+    nilai: score,
+    jumlah_benar: correct,
+    jumlah_salah: 10 - correct,
+    predikat: predikat,
+    waktu_submit: new Date().toISOString(),
+    detail_jawaban: detailJawaban
+  };
+  // Kirim ke Firebase (async, tidak menghalangi tampilan hasil)
+  saveToFirebase(dataFirebase);
+  // ─── AKHIR DATA FIREBASE ──────────────────────────────────────────
+
+  // Tampilkan hasil di layar (sama seperti sebelumnya)
+  window.scrollTo({top:0, behavior:'smooth'});
+  document.getElementById('test-section').style.display = 'none';
+  document.getElementById('student-form').style.display = 'none';
+  document.getElementById('result-section').style.display = 'block';
+
+  document.getElementById('result-student-info').innerHTML = `
+    <div class="info-chip">Nama: <span>${name}</span></div>
+  
+    <div class="info-chip">Kelas: <span>${cls}</span></div>
+    <div class="info-chip">Tanggal: <span>${date}</span></div>`;
+
+  const sc = document.getElementById('score-circle');
+  const sn = document.getElementById('score-num');
+  sn.textContent = score;
+  if (score >= 80) { sc.style.borderColor = '#00E676'; sn.style.color = '#00E676'; }
+  else if (score >= 60) { sc.style.borderColor = '#FFB800'; sn.style.color = '#FFB800'; }
+  else { sc.style.borderColor = '#FF5252'; sn.style.color = '#FF5252'; }
+
+  let grade, msg;
+  if (score >= 90) { grade = 'SANGAT BAIK ⭐'; msg = 'Pemahaman konsep energi surya sangat baik!'; }
+  else if (score >= 80) { grade = 'BAIK 🌟'; msg = 'Sebagian besar konsep sudah dipahami dengan baik.'; }
+  else if (score >= 70) { grade = 'CUKUP 📘'; msg = 'Perlu sedikit pendalaman materi energi surya.'; }
+  else if (score >= 60) { grade = 'KURANG 📖'; msg = 'Materi perlu dipelajari lebih mendalam sebelum praktik.'; }
+  else { grade = 'PERLU BIMBINGAN ❗'; msg = 'Disarankan mempelajari ulang konsep dasar sistem energi surya.'; }
+  document.getElementById('result-title').textContent = grade;
+  document.getElementById('result-sub').textContent = `Benar: ${correct}/10 soal · ${msg}`;
+
+  const tbody = document.getElementById('rekap-body');
+  tbody.innerHTML = '';
+  questions.forEach((q) => {
+    const ans = userAnswers[q.num] || '—';
+    const isOk = ans === q.answer;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:Orbitron,monospace;font-size:0.8rem;color:rgba(200,220,255,0.6)">${q.num}</td>
+      <td style="max-width:220px;font-size:0.82rem;color:#cde4ff">${q.text.substring(0,70)}${q.text.length>70?'...':''}</td>
+      <td style="font-family:Orbitron,monospace;font-weight:700;font-size:0.9rem;color:${isOk?'#00E676':'#FF5252'}">${ans}</td>
+     
+      <td><span class="badge ${isOk?'badge-correct':'badge-wrong'}">${isOk?'✓ Benar':'✗ Salah'}</span></td>
+      <td style="font-family:Orbitron,monospace;font-size:0.9rem;font-weight:700;color:${isOk?'#00E676':'#FF5252'}">${isOk?10:0}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('total-score-cell').textContent = score;
+  document.getElementById('total-score-cell').style.color = score>=70?'#00E676':'#FF5252';
+}
+
+function resetTest() {
+  userAnswers = {};
+  document.getElementById('result-section').style.display = 'none';
+  document.getElementById('student-form').style.display = 'block';
+  document.getElementById('test-section').style.display = 'block';
+  questions.forEach(q => {
+    q.options.forEach((_, j) => {
+      const btn = document.getElementById(`opt-${q.num}-${j}`);
+      btn.disabled = false;
+      btn.classList.remove('correct','wrong');
+    });
+    const fb = document.getElementById(`fb-${q.num}`);
+    fb.style.display = 'none';
+    document.getElementById(`q-${q.num}`).classList.remove('answered');
+    document.getElementById(`dot-${q.num}`).classList.remove('done');
+  });
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-label').textContent = '0 / 10 Terjawab';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+</script>
+</body>
+</html>
